@@ -45,22 +45,32 @@ class ContestMultiple(ContestSimple):
 class ContestRanked(ContestSimple):
     num_ranks: int
 
-    def _construct_vote_list(self, ranked_votes):
-        ret = []
+    def _sanitize_ranked_votes(self, ranked_votes, simplify_rank=True):
+        ret = {i: None for i in range(1, self.num_ranks + 1)}
+
+        simplified_rank = 1
         for rank in range(1, self.num_ranks + 1):
             votes = ranked_votes.get(rank, [])
+            if not votes:
+                # this is an undervote for this rank, but apparently that's ok?
+                continue
+
             if len(votes) != 1:
-                # this ballot is now either an overvote or undervote, STOP
+                # this ballot is now an overvote, STOP
                 break
-            ret.append(votes[0])
+
+            if simplify_rank:
+                ret[simplified_rank] = votes[0]
+                simplified_rank += 1
+            else:
+                ret[rank] = votes[0]
         return ret
 
     def to_dict(self, ranked_votes):
-        votes = self._construct_vote_list(ranked_votes)
+        votes = self._sanitize_ranked_votes(ranked_votes)
         ret = {}
-        for i in range(self.num_ranks):
-            vote = votes[i] if i < len(votes) else None
-            ret[f"{self.name}: RANK {i + 1}"] = vote
+        for rank in range(1, self.num_ranks + 1):
+            ret[f"{self.name}: RANK {rank}"] = votes[rank]
         return ret
 
 @dataclass(kw_only=True)

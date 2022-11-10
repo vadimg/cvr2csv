@@ -54,7 +54,7 @@ class Vote:
         return self.contest.serialize(self.choices)
 
 @dataclass
-class Voter:
+class VoterCard:
     precinct: str
     votes: list[Vote] = field(default_factory=list)
 
@@ -64,17 +64,28 @@ class Voter:
             ret.update(vote.serialize())
         return ret
 
-# TODO
-ballot_defs = {}  # id -> def
+@dataclass(kw_only=True)
+class BallotData:
+    precinct_defs: dict[int, str] = field(default_factory=dict)
+    ballot_defs: dict[int, ContestSimple | ContestMultiple | ContestRanked] = field(default_factory=dict)
 
-def get_voters():
-    precinct_defs = {}  # id -> str
+    voter_cards: list[VoterCard] = field(default_factory=list)
+
+    def get_fieldnames(self):
+        ret = ['precinct']
+        for b in self.ballot_defs.values():
+            ret.extend(b.serialize([]).keys())
+        return ret
+
+
+def get_ballot_data():
+    data = BallotData()
 
     with open(os.path.join(DIR, "PrecinctManifest.json")) as f:
         obj = json.load(f)
 
     for l in obj["List"]:
-        precinct_defs[l["Id"]] = l["Description"]
+        data.precinct_defs[l["Id"]] = l["Description"]
 
     with open(os.path.join(DIR, "ContestManifest.json")) as f:
         obj = json.load(f)
@@ -91,18 +102,17 @@ def get_voters():
         else:
             assert False, "Unknown"
 
-        ballot_defs[vote_def.id] = vote_def
+        data.ballot_defs[vote_def.id] = vote_def
 
     with open(os.path.join(DIR, "CandidateManifest.json")) as f:
         obj = json.load(f)
 
     for l in obj["List"]:
         contest_id = l["ContestId"]
-        ballot_defs[contest_id].choices[l["Id"]] = l["Description"]
+        data.ballot_defs[contest_id].choices[l["Id"]] = l["Description"]
 
 
     paths = glob.glob(os.path.join(DIR, "CvrExport*.json"))
-    voters = []
     for p in paths:
         with open(p) as f:
             obj = json.load(f)
@@ -115,10 +125,10 @@ def get_voters():
             for cvr in cvrs:
                 precinct_id = cvr["PrecinctPortionId"]
                 for card in cvr["Cards"]:
-                    voter = Voter(precinct=precinct_defs[precinct_id])
-                    voters.append(voter)
+                    voter = VoterCard(precinct=data.precinct_defs[precinct_id])
+                    data.voter_cards.append(voter)
                     for contest in card["Contests"]:
-                        vote = Vote(contest=ballot_defs[contest["Id"]])
+                        vote = Vote(contest=data.ballot_defs[contest["Id"]])
                         voter.votes.append(vote)
 
                         contest["Marks"].sort(key=lambda x: x["Rank"])
@@ -126,21 +136,14 @@ def get_voters():
                             if mark["IsVote"]:
                                vote.choices.append(vote.contest.choices[mark["CandidateId"]])
 
-    return voters
+    return data
 
-def get_fieldnames():
-    ret = ['precinct']
-    for b in ballot_defs.values():
-        ret.extend(b.serialize([]).keys())
-    return ret
 
-voters = get_voters()
+ballot_data = get_ballot_data()
 
-print(get_fieldnames())
-
-with open("voters.csv", "w", newline="") as f:
-    writer = csv.DictWriter(f, fieldnames=get_fieldnames())
+with open("voter_cards.csv", "w", newline="") as f:
+    writer = csv.DictWriter(f, fieldnames=ballot_data.get_fieldnames())
     writer.writeheader()
-    for v in voters:
+    for v in ballot_data.voter_cards:
         writer.writerow(v.serialize())
 

@@ -18,7 +18,7 @@ class ContestSimple:
     name: str
     choices: dict[int, str] = field(default_factory=dict)
 
-    def serialize(self, votes):
+    def to_dict(self, votes):
         assert len(votes) <= 1
         vote = votes[0] if len(votes) > 0 else None
         return {self.name: vote}
@@ -27,7 +27,7 @@ class ContestSimple:
 class ContestMultiple(ContestSimple):
     num_choices: int
 
-    def serialize(self, votes):
+    def to_dict(self, votes):
         ret = {}
         for i in range(self.num_choices):
             vote = votes[i] if i < len(votes) else None
@@ -38,7 +38,7 @@ class ContestMultiple(ContestSimple):
 class ContestRanked(ContestSimple):
     num_ranks: int
 
-    def serialize(self, votes):
+    def to_dict(self, votes):
         ret = {}
         for i in range(self.num_ranks):
             vote = votes[i] if i < len(votes) else None
@@ -50,18 +50,18 @@ class Vote:
     contest: ContestSimple | ContestMultiple | ContestRanked
     choices: list[str] = field(default_factory=list)
 
-    def serialize(self):
-        return self.contest.serialize(self.choices)
+    def to_dict(self):
+        return self.contest.to_dict(self.choices)
 
 @dataclass
 class VoterCard:
     precinct: str
     votes: list[Vote] = field(default_factory=list)
 
-    def serialize(self):
+    def to_dict(self):
         ret = {"precinct": self.precinct}
         for vote in self.votes:
-            ret.update(vote.serialize())
+            ret.update(vote.to_dict())
         return ret
 
 @dataclass(kw_only=True)
@@ -74,7 +74,7 @@ class BallotData:
     def get_fieldnames(self):
         ret = ['precinct']
         for b in self.ballot_defs.values():
-            ret.extend(b.serialize([]).keys())
+            ret.extend(b.to_dict([]).keys())
         return ret
 
 
@@ -145,5 +145,5 @@ with open("voter_cards.csv", "w", newline="") as f:
     writer = csv.DictWriter(f, fieldnames=ballot_data.get_fieldnames())
     writer.writeheader()
     for v in ballot_data.voter_cards:
-        writer.writerow(v.serialize())
+        writer.writerow(v.to_dict())
 

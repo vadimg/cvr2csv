@@ -6,6 +6,7 @@ from typing import Optional
 import pickle
 import string
 import csv
+import re
 
 DIR = "/Users/vadim/Downloads/CVR_Export_20221012160533"
 DIR = "/Users/vadim/Downloads/CVR_Export_20221108200035"
@@ -31,6 +32,7 @@ class ContestMultiple(ContestSimple):
         ret = {}
         for i in range(self.num_choices):
             vote = votes[i] if i < len(votes) else None
+            # using A/B/C/etc for choices so it's clear they're not ranked/ordered
             ret[f"{self.name}: CHOICE {string.ascii_uppercase[i]}"] = vote
         return ret
 
@@ -85,7 +87,11 @@ def get_ballot_data():
         obj = json.load(f)
 
     for l in obj["List"]:
-        data.precinct_defs[l["Id"]] = l["Description"]
+        # clean up precinct so that it is only a number
+        pct = l["Description"]
+        m = re.match(r"PCT (\d+)( MB)?", pct)
+        assert m
+        data.precinct_defs[l["Id"]] = m.group(1)
 
     with open(os.path.join(DIR, "ContestManifest.json")) as f:
         obj = json.load(f)
@@ -113,6 +119,7 @@ def get_ballot_data():
 
 
     paths = glob.glob(os.path.join(DIR, "CvrExport*.json"))
+    xxx = []
     for p in paths:
         with open(p) as f:
             obj = json.load(f)
@@ -132,10 +139,16 @@ def get_ballot_data():
                         voter.votes.append(vote)
 
                         contest["Marks"].sort(key=lambda x: x["Rank"])
+                        printed = False
                         for mark in contest["Marks"]:
                             if mark["IsVote"]:
-                               vote.choices.append(vote.contest.choices[mark["CandidateId"]])
+                               candidate = vote.contest.choices[mark["CandidateId"]]
+                               if candidate == "MATT DORSEY" and not printed and vote.contest.id == 38:
+                                   xxx.append(contest)
+                                   printed = True
+                               vote.choices.append(candidate)
 
+    print(json.dumps(xxx))
     return data
 
 

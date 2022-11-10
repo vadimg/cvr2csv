@@ -2,6 +2,7 @@ import os
 import glob
 import json
 from dataclasses import dataclass, field
+from collections import defaultdict
 from typing import Optional
 import pickle
 import string
@@ -19,7 +20,9 @@ class ContestSimple:
     name: str
     choices: dict[int, str] = field(default_factory=dict)
 
-    def to_dict(self, votes):
+    def to_dict(self, ranked_votes):
+        assert not ranked_votes or ranked_votes.get(1) is not None
+        votes = ranked_votes.get(1, [])
         assert len(votes) <= 1
         vote = votes[0] if len(votes) > 0 else None
         return {self.name: vote}
@@ -28,7 +31,9 @@ class ContestSimple:
 class ContestMultiple(ContestSimple):
     num_choices: int
 
-    def to_dict(self, votes):
+    def to_dict(self, ranked_votes):
+        assert not ranked_votes or ranked_votes.get(1) is not None
+        votes = ranked_votes.get(1, [])
         ret = {}
         for i in range(self.num_choices):
             vote = votes[i] if i < len(votes) else None
@@ -40,7 +45,18 @@ class ContestMultiple(ContestSimple):
 class ContestRanked(ContestSimple):
     num_ranks: int
 
-    def to_dict(self, votes):
+    def _construct_vote_list(self, ranked_votes):
+        ret = []
+        for rank in range(1, self.num_ranks + 1):
+            votes = ranked_votes.get(rank, [])
+            if len(votes) != 1:
+                # this ballot is now either an overvote or undervote, STOP
+                break
+            ret.append(votes[0])
+        return ret
+
+    def to_dict(self, ranked_votes):
+        votes = self._construct_vote_list(ranked_votes)
         ret = {}
         for i in range(self.num_ranks):
             vote = votes[i] if i < len(votes) else None
@@ -50,10 +66,11 @@ class ContestRanked(ContestSimple):
 @dataclass(kw_only=True)
 class Vote:
     contest: ContestSimple | ContestMultiple | ContestRanked
-    choices: list[str] = field(default_factory=list)
+    ranked_choices: dict[int, list[str]] = field(
+        default_factory=lambda: defaultdict(list))
 
     def to_dict(self):
-        return self.contest.to_dict(self.choices)
+        return self.contest.to_dict(self.ranked_choices)
 
 @dataclass
 class VoterCard:
@@ -76,7 +93,7 @@ class BallotData:
     def get_fieldnames(self):
         ret = ['precinct']
         for b in self.ballot_defs.values():
-            ret.extend(b.to_dict([]).keys())
+            ret.extend(b.to_dict({}).keys())
         return ret
 
 
@@ -119,7 +136,6 @@ def get_ballot_data():
 
 
     paths = glob.glob(os.path.join(DIR, "CvrExport*.json"))
-    xxx = []
     for p in paths:
         with open(p) as f:
             obj = json.load(f)
@@ -138,17 +154,12 @@ def get_ballot_data():
                         vote = Vote(contest=data.ballot_defs[contest["Id"]])
                         voter.votes.append(vote)
 
-                        contest["Marks"].sort(key=lambda x: x["Rank"])
-                        printed = False
                         for mark in contest["Marks"]:
                             if mark["IsVote"]:
                                candidate = vote.contest.choices[mark["CandidateId"]]
-                               if candidate == "MATT DORSEY" and not printed and vote.contest.id == 38:
-                                   xxx.append(contest)
-                                   printed = True
-                               vote.choices.append(candidate)
+                               rank = mark["Rank"]
+                               vote.ranked_choices[rank].append(candidate)
 
-    print(json.dumps(xxx))
     return data
 
 

@@ -3,15 +3,10 @@ import glob
 import json
 from dataclasses import dataclass, field
 from collections import defaultdict
-from typing import Optional
-import pickle
 import string
 import csv
 import re
-
-DIR = "/Users/vadim/Downloads/CVR_Export_20221012160533"
-DIR = "/Users/vadim/Downloads/CVR_Export_20221108200035"
-DIR = "/Users/vadim/Downloads/CVR_Export_20221108235925"
+import argparse
 
 
 @dataclass(kw_only=True)
@@ -107,10 +102,11 @@ class BallotData:
         return ret
 
 
-def get_ballot_data():
+def get_ballot_data(input_dir):
     data = BallotData()
 
-    with open(os.path.join(DIR, "PrecinctManifest.json")) as f:
+    # create a precinct index
+    with open(os.path.join(input_dir, "PrecinctManifest.json")) as f:
         obj = json.load(f)
 
     for l in obj["List"]:
@@ -120,7 +116,8 @@ def get_ballot_data():
         assert m
         data.precinct_defs[l["Id"]] = m.group(1)
 
-    with open(os.path.join(DIR, "ContestManifest.json")) as f:
+    # load all the vote contests into the ballot defs
+    with open(os.path.join(input_dir, "ContestManifest.json")) as f:
         obj = json.load(f)
 
     for l in obj["List"]:
@@ -132,26 +129,26 @@ def get_ballot_data():
         elif l["VoteFor"] > 1:
             assert l["NumOfRanks"] == 0
             vote_def = ContestMultiple(id=l["Id"], name=l["Description"], num_choices=l["VoteFor"])
-        else:
-            assert False, "Unknown"
+
+        assert vote_def, "Unknown contest type"
 
         data.ballot_defs[vote_def.id] = vote_def
 
-    with open(os.path.join(DIR, "CandidateManifest.json")) as f:
+    # add all the choices to the ballot defs
+    with open(os.path.join(input_dir, "CandidateManifest.json")) as f:
         obj = json.load(f)
 
     for l in obj["List"]:
         contest_id = l["ContestId"]
         data.ballot_defs[contest_id].choices[l["Id"]] = l["Description"]
 
-
-    paths = glob.glob(os.path.join(DIR, "CvrExport*.json"))
+    # read all the ballots
+    paths = glob.glob(os.path.join(input_dir, "CvrExport*.json"))
     for p in paths:
         with open(p) as f:
             obj = json.load(f)
 
         for s in obj["Sessions"]:
-
             cvrs = [s["Original"], s.get("Modified", {})]
             cvrs = [x for x in cvrs if x.get("IsCurrent")]
 
@@ -173,11 +170,20 @@ def get_ballot_data():
     return data
 
 
-ballot_data = get_ballot_data()
+def main():
+    parser = argparse.ArgumentParser(
+        description = "Converts a dump of unusable San Francisco Raw Ballot Data to usable CSV")
+    parser.add_argument("input_dir")
+    parser.add_argument("-o", "--output-csv-filename", default="voter_cards.csv")
+    args = parser.parse_args()
 
-with open("voter_cards.csv", "w", newline="") as f:
-    writer = csv.DictWriter(f, fieldnames=ballot_data.get_fieldnames())
-    writer.writeheader()
-    for v in ballot_data.voter_cards:
-        writer.writerow(v.to_dict())
+    ballot_data = get_ballot_data(args.input_dir)
 
+    with open(args.output_csv_filename, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=ballot_data.get_fieldnames())
+        writer.writeheader()
+        for v in ballot_data.voter_cards:
+            writer.writerow(v.to_dict())
+
+if __name__ == "__main__":
+    main()

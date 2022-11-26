@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <title>SF Ballot Mapifier</title>
+  </head>
+  <body>
+     <script>
+const FIXED = new Set(["precinct"]);
+const PCT = "precinct";
+
+function possibilities(columns, data, filter) {
+  var ret = {};
+  for (const value of columns) {
+    if (value === PCT) {
+      continue;
+    }
+    ret[value] = new Set();
+  }
+
+  for (const row of data) {
+    for (let i=0; i < row.length; ++i) {
+      if (columns[i] === PCT) {
+        continue;
+      }
+      if (row[i] === "") {
+        continue;
+      }
+
+      // filter out anything that doesn't match any item in the filter map
+      if (filter) {
+        let cont = false;
+        for (const idx in filter) {
+          let val = filter[idx];
+          if (row[idx] !== val) {
+            cont = true;
+            break;
+          }
+        }
+        if (cont) {
+          continue;
+        }
+      }
+
+      let key = columns[i];
+      let val = row[i];
+      ret[key].add(val);
+    }
+  }
+
+  return ret;
+}
+
+const start = Date.now();
+const myWorker = new Worker('worker.js', { type: "module" });
+myWorker.onmessage = (e) => {
+  console.log('Message received from worker in a total of', Date.now() - start);
+  const data = e.data;
+  const columns = data.shift();
+  var colMap = {};
+  columns.forEach((value, i) => {
+    colMap[value] = i;
+  });
+  console.log(colMap);
+  console.log(data[0]);
+  console.log(possibilities(columns, data));
+  console.log(possibilities(columns, data, {78: "Yes"}));
+};
+     </script>
+  </body>
+</html>
+

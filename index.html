@@ -6,11 +6,99 @@
     <title>SF Ballot Mapifier</title>
   </head>
   <body>
-     <script>
+    <script type="importmap">
+      {
+        "imports": {
+          "vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.js"
+        }
+      }
+    </script>
+
+    <div id="app">
+      <ul>
+        <template v-for="(values, key) in poss">
+          <li v-if="values.length">
+            <div>
+              {{ key }}
+            </div>
+            <select v-model="filters[key]" :sb_key="key">
+              <option></option>
+              <option v-for="opt in possibil(key)" :value="opt">{{opt}}</option>
+            </select>
+          </li>
+        </template>
+      </ul>
+    </div>
+
+    <script type="module">
+import { createApp } from 'vue'
+
+createApp({
+  mounted() {
+    console.log('mounted');
+
+    const start = Date.now();
+    const myWorker = new Worker('worker.js', { type: "module" });
+    myWorker.onmessage = (e) => {
+      console.log('Message received from worker in a total of', Date.now() - start);
+      this.data = e.data;
+      this.columns = this.data.shift();
+      this.columns.forEach((value, i) => {
+        this.colMap[value] = i;
+      });
+      console.log(this.colMap);
+      console.log(this.data[0]);
+    };
+  },
+  data() {
+    return {
+      data: [],
+      columns: [],
+      colMap: {},
+      filters: {},
+      originalPossibilities: {},
+      message: 'Hello Vue!'
+    }
+  },
+  computed: {
+    poss() {
+      console.log('poss');
+      const ret = possibilities(this.columns, this.colMap, this.data, this.filters);
+      if (Object.keys(this.originalPossibilities).length === 0 ) {
+        this.originalPossibilities = ret;
+        console.log('orig', this.originalPossibilities);
+      }
+      return ret;
+    }
+  },
+  methods: {
+    possibil(key) {
+      if (this.filters[key]) {
+        return this.originalPossibilities[key];
+      }
+
+      return this.poss[key];
+    },
+    select(evt) {
+    return;
+      let sb = evt.srcElement;
+      let opt = sb.options[sb.selectedIndex];
+      let key = sb.getAttribute("sb_key");
+      let val = opt.value;
+      if (val === "") {
+        delete this.filters[key];
+      } else {
+        this.filters[key] = val;
+      }
+    }
+  }
+}).mount('#app')
+
 const FIXED = new Set(["precinct"]);
 const PCT = "precinct";
 
-function possibilities(columns, data, filter) {
+function possibilities(columns, colMap, data, filter) {
+  console.log(filter);
   var ret = {};
   for (const value of columns) {
     if (value === PCT) {
@@ -31,8 +119,12 @@ function possibilities(columns, data, filter) {
       // filter out anything that doesn't match any item in the filter map
       if (filter) {
         let cont = false;
-        for (const idx in filter) {
-          let val = filter[idx];
+        for (const key in filter) {
+          const idx = colMap[key];
+          let val = filter[key];
+          if (!val) {
+            continue;
+          }
           if (row[idx] !== val) {
             cont = true;
             break;
@@ -49,24 +141,14 @@ function possibilities(columns, data, filter) {
     }
   }
 
+  for (let key in ret) {
+    ret[key] = Array.from(ret[key]);
+    ret[key].sort();
+  }
+
+  console.log(ret);
   return ret;
 }
-
-const start = Date.now();
-const myWorker = new Worker('worker.js', { type: "module" });
-myWorker.onmessage = (e) => {
-  console.log('Message received from worker in a total of', Date.now() - start);
-  const data = e.data;
-  const columns = data.shift();
-  var colMap = {};
-  columns.forEach((value, i) => {
-    colMap[value] = i;
-  });
-  console.log(colMap);
-  console.log(data[0]);
-  console.log(possibilities(columns, data));
-  console.log(possibilities(columns, data, {78: "Yes"}));
-};
      </script>
   </body>
 </html>

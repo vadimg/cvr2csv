@@ -16,7 +16,7 @@
 
     <div id="app">
       <ul>
-        <template v-for="(values, key) in poss">
+        <template v-for="(values, key) in possibilities">
           <li v-if="values.length">
             <div>
               {{ key }}
@@ -61,8 +61,8 @@ createApp({
     }
   },
   computed: {
-    poss() {
-      console.log('poss');
+    possibilities() {
+      console.log('possibilities');
       const ret = possibilities(this.columns, this.colMap, this.data, this.filters);
       if (Object.keys(this.originalPossibilities).length === 0 ) {
         this.originalPossibilities = ret;
@@ -77,7 +77,7 @@ createApp({
         return this.originalPossibilities[key];
       }
 
-      return this.poss[key];
+      return this.possibilities[key];
     },
     select(evt) {
     return;

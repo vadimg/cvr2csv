@@ -23,25 +23,22 @@ html, body {
 
 #app {
   overflow: auto;
+  flex: 0 0 300px;
+  padding-right: 10px;
+}
+
+#map {
+  flex: 1;
 }
 
 .flex-container {
     display: flex;
     height: 100%;
 }
-
-.flex-child {
-    flex: 1;
-}
-
-.flex-child:first-child {
-    flex: 0 0 300px;
-    margin-right: 10px;
-}
 </style>
 
   <div class="flex-container">
-    <div id="app" class="flex-child">
+    <div id="app">
       <ul>
         <template v-for="(values, key) in possibilities">
           <li v-if="values.length">
@@ -56,7 +53,7 @@ html, body {
         </template>
       </ul>
     </div>
-    <div id="map" class="flex-child">
+    <div id="map">
     </div>
   </div>
 

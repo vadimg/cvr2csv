@@ -95,6 +95,15 @@ map.setCenter([-122.42936665634733, 37.75967613988033]);
 
 
 map.on('load', function () {
+  // add dummy data until we get our own
+  map.addSource('precincts', {
+    type: 'geojson',
+    data: {
+      "type": "FeatureCollection",
+      "features": []
+    }
+  });
+
   map.addLayer({
       'id': 'precincts-layer',
       'type': 'fill',
@@ -106,6 +115,9 @@ map.on('load', function () {
       }
   });
 });
+
+var geojson;
+var geojson_index = {}; // precinct -> obj
 
 createApp({
   mounted() {
@@ -128,18 +140,13 @@ createApp({
       .then((response) => response.json())
       .then((data) => {
         console.log('geojson', data);
-        this.geojson = data;
-        for (let o of this.geojson.features) {
+        geojson = data;
+        for (let o of geojson.features) {
           const pct = o.properties.prec_2012;
-          this.geojson_index[pct] = o.properties;
+          geojson_index[pct] = o;
         }
-        console.log(this.geojson);
-        console.log(this.geojson_index);
-
-        map.addSource('precincts', {
-          type: 'geojson',
-          data: this.geojson,
-        });
+        console.log(geojson);
+        console.log(geojson_index);
       });
   },
   data() {
@@ -149,18 +156,38 @@ createApp({
       colMap: {},
       filters: {},
       originalPossibilities: {},
-      geojson: {},
-      geojson_index: {},  // precinct -> properties
     }
   },
   computed: {
     possibilities() {
       console.log('possibilities');
-      const ret = possibilities(this.columns, this.colMap, this.data, this.filters);
+      const ret = filterPossibilities(this.columns, this.colMap, this.data, this.filters);
       if (Object.keys(this.originalPossibilities).length === 0 ) {
         this.originalPossibilities = ret;
         console.log('orig', this.originalPossibilities);
       }
+
+      for (let k in geojson_index) {
+        if (Math.random() < 0.5) {
+          geojson_index[k].properties.fill = '#ff0000';
+        } else {
+          geojson_index[k].properties.fill = '#00ff00';
+        }
+      }
+
+      let arr = [];
+      for(let k in ret) {
+        arr.push(k);
+        console.log(ret[k]);
+      }
+      console.log('arrrrrr', arr);
+
+      const pcts = map.getSource('precincts');
+      if (pcts) {
+        pcts.setData(geojson);
+        console.log('pcts', geojson);
+      }
+
       return ret;
     }
   },
@@ -178,8 +205,8 @@ createApp({
 const FIXED = new Set(["precinct"]);
 const PCT = "precinct";
 
-function possibilities(columns, colMap, data, filter) {
-  console.log(filter);
+function filterPossibilities(columns, colMap, data, filter) {
+  console.log('filtermap', filter);
   var ret = {};
   for (const value of columns) {
     if (value === PCT) {

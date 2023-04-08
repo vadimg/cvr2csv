@@ -170,6 +170,10 @@ def get_ballot_data(input_dir):
     return data
 
 
+def mark_nones(d):
+        return {k: (v if v is not None else "[-]") for k, v in d.items()}
+
+
 def main():
     parser = argparse.ArgumentParser(
         description = "Converts a dump of unusable San Francisco Raw Ballot Data to usable CSV")
@@ -183,7 +187,7 @@ def main():
         writer = csv.DictWriter(f, fieldnames=ballot_data.get_fieldnames())
         writer.writeheader()
         for v in ballot_data.voter_cards:
-            writer.writerow(v.to_dict())
+            writer.writerow(mark_nones(v.to_dict()))
 
 if __name__ == "__main__":
     main()

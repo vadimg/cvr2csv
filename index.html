@@ -39,15 +39,16 @@ html, body {
 
   <div class="flex-container">
     <div id="app">
+      <button @click="filters={}">Reset</button>
       <ul>
-        <template v-for="(values, key) in possibilities">
-          <li v-if="values.length">
+        <template v-for="key in allRaces">
+          <li>
             <div>
               {{ key }}
             </div>
             <select v-model="filters[key]">
               <option></option>
-              <option v-for="opt in options(key)" :value="opt">{{opt}}</option>
+              <option v-for="opt in possibilities[key]" :value="opt">{{opt}}</option>
             </select>
           </li>
         </template>
@@ -57,207 +58,7 @@ html, body {
     </div>
   </div>
 
-    <script type="module">
-import { createApp } from 'vue'
-
-mapboxgl.accessToken = 'pk.eyJ1IjoiZGltdmEiLCJhIjoiY2plYzhtMTM5MG5yazJ4bGE0OHZrcHpnZCJ9.u9hqKMLwpq-JHGyhAW2GeQ';
-var map = new mapboxgl.Map({
-    container: 'map', // container id
-    style: 'mapbox://styles/mapbox/light-v11',
-});
-
-// Hide loading bar once tiles from geojson are loaded
-map.on('data', function(e) {
-    if (e.dataType === 'source' && e.sourceId === 'zones-layer') {
-        document.getElementById("loader").style.display = "none";
-    }
-});
-
-// disable map rotation using right click + drag
-map.dragRotate.disable();
-
-// disable map rotation using touch rotation gesture
-map.touchZoomRotate.disableRotation();
-
-// add zoom controls to the map
-map.addControl(new mapboxgl.NavigationControl({showCompass: false}));
-
-// add geolocation control to the map
-map.addControl(new mapboxgl.GeolocateControl({
-    positionOptions: {
-        enableHighAccuracy: true
-    },
-    trackUserLocation: true
-}));
-
-map.setZoom(11.75);
-map.setCenter([-122.42936665634733, 37.75967613988033]);
-
-
-map.on('load', function () {
-  // add dummy data until we get our own
-  map.addSource('precincts', {
-    type: 'geojson',
-    data: {
-      "type": "FeatureCollection",
-      "features": []
-    }
-  });
-
-  map.addLayer({
-      'id': 'precincts-layer',
-      'type': 'fill',
-      'source': 'precincts',
-      'paint': {
-          'fill-opacity': 0.7,
-          'fill-color': ['get', 'fill'],
-          'fill-outline-color': '#000',
-      }
-  });
-});
-
-var geojson;
-var geojson_index = {}; // precinct -> obj
-
-createApp({
-  mounted() {
-    console.log('mounted');
-
-    const start = Date.now();
-    const myWorker = new Worker('worker.js', { type: "module" });
-    myWorker.onmessage = (e) => {
-      console.log('Message received from worker in a total of', Date.now() - start);
-      this.data = e.data;
-      this.columns = this.data.shift();
-      this.columns.forEach((value, i) => {
-        this.colMap[value] = i;
-      });
-      console.log(this.colMap);
-      console.log(this.data[0]);
-    };
-
-    fetch('/precincts.geojson')
-      .then((response) => response.json())
-      .then((data) => {
-        console.log('geojson', data);
-        geojson = data;
-        for (let o of geojson.features) {
-          const pct = o.properties.prec_2012;
-          geojson_index[pct] = o;
-        }
-        console.log(geojson);
-        console.log(geojson_index);
-      });
-  },
-  data() {
-    return {
-      data: [],
-      columns: [],
-      colMap: {},
-      filters: {},
-      originalPossibilities: {},
-    }
-  },
-  computed: {
-    possibilities() {
-      console.log('possibilities');
-      const ret = filterPossibilities(this.columns, this.colMap, this.data, this.filters);
-      if (Object.keys(this.originalPossibilities).length === 0 ) {
-        this.originalPossibilities = ret;
-        console.log('orig', this.originalPossibilities);
-      }
-
-      for (let k in geojson_index) {
-        if (Math.random() < 0.5) {
-          geojson_index[k].properties.fill = '#ff0000';
-        } else {
-          geojson_index[k].properties.fill = '#00ff00';
-        }
-      }
-
-      let arr = [];
-      for(let k in ret) {
-        arr.push(k);
-        console.log(ret[k]);
-      }
-      console.log('arrrrrr', arr);
-
-      const pcts = map.getSource('precincts');
-      if (pcts) {
-        pcts.setData(geojson);
-        console.log('pcts', geojson);
-      }
-
-      return ret;
-    }
-  },
-  methods: {
-    options(key) {
-      if (this.filters[key]) {
-        return this.originalPossibilities[key];
-      }
-
-      return this.possibilities[key];
-    },
-  }
-}).mount('#app')
-
-const FIXED = new Set(["precinct"]);
-const PCT = "precinct";
-
-function filterPossibilities(columns, colMap, data, filter) {
-  console.log('filtermap', filter);
-  var ret = {};
-  for (const value of columns) {
-    if (value === PCT) {
-      continue;
-    }
-    ret[value] = new Set();
-  }
-
-  for (const row of data) {
-    for (let i=0; i < row.length; ++i) {
-      if (columns[i] === PCT) {
-        continue;
-      }
-      if (row[i] === "") {
-        continue;
-      }
-
-      // filter out anything that doesn't match any item in the filter map
-      if (filter) {
-        let cont = false;
-        for (const key in filter) {
-          const idx = colMap[key];
-          let val = filter[key];
-          if (!val) {
-            continue;
-          }
-          if (row[idx] !== val) {
-            cont = true;
-            break;
-          }
-        }
-        if (cont) {
-          continue;
-        }
-      }
-
-      let key = columns[i];
-      let val = row[i];
-      ret[key].add(val);
-    }
-  }
-
-  for (let key in ret) {
-    ret[key] = Array.from(ret[key]);
-    ret[key].sort();
-  }
-
-  console.log(ret);
-  return ret;
-}
-     </script>
+    <script type="module" src="index.js"></script>
   </body>
 </html>
 

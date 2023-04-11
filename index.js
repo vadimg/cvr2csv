@@ -127,7 +127,7 @@ createApp({
         console.log('geojson', data);
         geojson = data;
         for (let o of geojson.features) {
-          const pct = o.properties.prec_2012;
+          const pct = o.properties.Prec_2022;
           geojson_index[pct] = o;
         }
         console.log(geojson);
@@ -179,16 +179,21 @@ createApp({
       handler(val) {
         const precincts = precinctVotes(this.data, this.columns, this.filters, this.pageIndex, this.possibilities.precinct);
 
+        let percents = [];
         for(const [pct, votes] of Object.entries(precincts)) {
           const percent = votes / precinct_vote_totals[pct];
+          percents.push(percent);
           console.log(pct, percent);
         }
 
+        const mean = computeMean(percents);
+        const stddev = computeStddev(percents);
         for (let k in geojson_index) {
           if (precinct_vote_totals[k]) {
             const percent = precincts[k] / precinct_vote_totals[k];
-            geojson_index[k].properties.fill = color(percent);
+            geojson_index[k].properties.fill = color(percent, mean, stddev);
           } else {
+            console.log("no precinct found:", k);
             geojson_index[k].properties.fill = "#cccccc";
           }
         }
@@ -212,9 +217,19 @@ function precinctVotes(data, columns, filters, pageIndex, allPrecincts) {
   return precinctVotesImpl(data[index], columns[index], filters, allPrecincts);
 }
 
-function color(percent) {
-  return ("#" + Math.round(255 * percent).toString(16) +
-    Math.round(255 * (1 - percent)).toString(16) + "00");
+function color(percent, mean, stddev) {
+  const dist = Math.abs(percent - mean) / stddev;
+  const colorDist = Math.min(100 * dist, 255);
+  let hex = Math.round(255 - colorDist).toString(16);
+  if(hex.length < 2) {
+    hex = "0" + hex;
+  }
+
+  if (percent < mean) {
+    return "#" + hex + hex + "ff";
+  } else {
+    return "#ff" + hex + hex;
+  }
 }
 
 function precinctVotesImpl(data, columns, filters, allPrecincts) {
@@ -246,7 +261,7 @@ function precinctVotesImpl(data, columns, filters, allPrecincts) {
   return precincts;
 }
 
-function mean(arr) {
+function computeMean(arr) {
   let sum = 0;
   for (let i = 0; i < arr.length; i++) {
     sum += arr[i];
@@ -254,8 +269,8 @@ function mean(arr) {
   return sum / arr.length;
 }
 
-function standardDeviation(arr) {
-  let avg = mean(arr);
+function computeStddev(arr) {
+  let avg = computeMean(arr);
   let sum = 0;
   for (let i = 0; i < arr.length; i++) {
     sum += Math.pow(arr[i] - avg, 2);

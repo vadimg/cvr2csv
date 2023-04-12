@@ -53,6 +53,28 @@ map.on('load', function () {
           'fill-outline-color': '#000',
       }
   });
+
+  map.on('click', 'precincts-layer', function (e) {
+    // remove all existing popups before adding a new one
+    const popups = document.getElementsByClassName("mapboxgl-popup");
+    for(const popup of popups) {
+      popup.remove();
+    }
+
+    const prop = e.features[0].properties;
+
+    new mapboxgl.Popup()
+        .setLngLat(e.lngLat)
+        .setHTML(document.getElementById("popup-template").innerHTML)
+        .addTo(map);
+
+    let app = createApp({
+      data() { return prop; },
+      mounted() { app.unmount(); },
+    });
+    app.mount('#popup-content');
+  });
+
 });
 
 const PCT = "precinct";
@@ -80,7 +102,7 @@ function computePossibilities(data, columns) {
 
 var geojson;
 var geojson_index = {}; // precinct -> obj
-var precinct_vote_totals;
+var precinct_vote_totals;  // precinct -> total votes
 
 function selectedPageIndex(filters, pageIndex) {
   let index;
@@ -151,7 +173,14 @@ createApp({
 
       possibilities: {},  // possibilities for every race
       pageIndex: [], // race -> ballot page index
+
+      range: [],
     }
+  },
+  methods: {
+    color(i) {
+      return color(i, 0, 1);
+    },
   },
   computed: {
     allRaces() {
@@ -177,25 +206,33 @@ createApp({
   watch: {
     filters: {
       handler(val) {
-        const precincts = precinctVotes(this.data, this.columns, this.filters, this.pageIndex, this.possibilities.precinct);
+        const pctVotes = precinctVotes(this.data, this.columns, this.filters, this.pageIndex);
 
         let percents = [];
-        for(const [pct, votes] of Object.entries(precincts)) {
-          const percent = votes / precinct_vote_totals[pct];
+        for(const [pct, votes] of Object.entries(pctVotes)) {
+          const percent = votes == 0 ? 0 : votes / precinct_vote_totals[pct];
           percents.push(percent);
           console.log(pct, percent);
         }
 
         const mean = computeMean(percents);
         const stddev = computeStddev(percents);
+
+        this.range = [];
+        for(var i=-2; i <= 2; ++i) {
+          this.range.push(mean + i * stddev);
+        }
+        console.log('RANGE', this.range);
+
         for (let k in geojson_index) {
-          if (precinct_vote_totals[k]) {
-            const percent = precincts[k] / precinct_vote_totals[k];
+          if(precinct_vote_totals[k]) {
+            const percent = pctVotes[k] / precinct_vote_totals[k];
             geojson_index[k].properties.fill = color(percent, mean, stddev);
           } else {
-            console.log("no precinct found:", k);
             geojson_index[k].properties.fill = "#cccccc";
           }
+          geojson_index[k].properties.votes = pctVotes[k];
+          geojson_index[k].properties.total_votes = precinct_vote_totals[k];
         }
 
         const pcts = map.getSource('precincts');
@@ -209,16 +246,23 @@ createApp({
   },
 }).mount('#app');
 
-function precinctVotes(data, columns, filters, pageIndex, allPrecincts) {
+function precinctVotes(data, columns, filters, pageIndex) {
   const index = selectedPageIndex(filters, pageIndex);
-  if (index === undefined) {
-    return {};  // TODO: return something better?
+
+  let zeroedPrecincts = {};
+  for(const pct of Object.keys(precinct_vote_totals)) {
+    zeroedPrecincts[pct] = 0;
   }
-  return precinctVotesImpl(data[index], columns[index], filters, allPrecincts);
+
+  if (index === undefined) {
+    return zeroedPrecincts;
+  }
+  return precinctVotesImpl(data[index], columns[index], filters, zeroedPrecincts);
 }
 
 function color(percent, mean, stddev) {
-  const dist = Math.abs(percent - mean) / stddev;
+  // returns a color based on stddev distance from the mean, from blue to red
+  const dist = stddev === 0 ? 0 : Math.abs(percent - mean) / stddev;
   const colorDist = Math.min(100 * dist, 255);
   let hex = Math.round(255 - colorDist).toString(16);
   if(hex.length < 2) {
@@ -232,7 +276,7 @@ function color(percent, mean, stddev) {
   }
 }
 
-function precinctVotesImpl(data, columns, filters, allPrecincts) {
+function precinctVotesImpl(data, columns, filters, pctVotes) {
   let queryArr = [];
   for(const [i, col] of columns.entries()) {
     if (filters[col]) {
@@ -240,10 +284,6 @@ function precinctVotesImpl(data, columns, filters, allPrecincts) {
     }
   }
 
-  let precincts = {};
-  for(const pct of allPrecincts) {
-    precincts[pct] = 0;
-  }
   for(const row of data) {
     let add = true;
     for(const [i, col] of queryArr) {
@@ -253,12 +293,11 @@ function precinctVotesImpl(data, columns, filters, allPrecincts) {
       }
     }
     if(add) {
-      precincts[row[0]]++;
+      pctVotes[row[0]]++;
     }
   }
 
-  console.log(precincts);
-  return precincts;
+  return pctVotes;
 }
 
 function computeMean(arr) {

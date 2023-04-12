@@ -14,4 +14,12 @@ NOTE: Each row in the CSV is not a voter, it is a ballot page. There is no way t
 
 ## Web interface
 
+If you run `python -m http.server` and go to `http://localhost:8000`, you will be able to map different types of voters (eg, a voter who voted for Measure D and against Measure E).
 
+This should just work, as all processed data has been committed. To update the data, run:
+
+* cvr2csv.py on the latest raw CVR data.
+* split_votercard_into_pages.py. This splits the votercard csv into pages, which is required for the web app (otherwise, it'd be way too slow).
+* sov.py on the latest "Statement of the Vote" excel file.
+
+Both of the raw data sources can be downloaded from: https://sfelections.sfgov.org/november-8-2022-election-results-detailed-reports

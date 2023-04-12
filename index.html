@@ -69,6 +69,15 @@ html, body {
   line-height: 35px;
 }
 
+.races {
+  list-style: none;
+}
+
+.races li {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
 .template {
   display: none;
 }
@@ -78,7 +87,7 @@ html, body {
   <div class="flex-container">
     <div id="app">
       <button @click="filters={}">Reset</button>
-      <ul>
+      <ul class="races">
         <template v-for="key in allRaces">
           <li>
             <div>

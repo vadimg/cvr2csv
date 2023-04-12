@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 import glob
 import json
@@ -178,7 +180,7 @@ def main():
     parser = argparse.ArgumentParser(
         description = "Converts a dump of unusable San Francisco Raw Ballot Data to usable CSV")
     parser.add_argument("input_dir")
-    parser.add_argument("-o", "--output-csv-filename", default="voter_cards.csv")
+    parser.add_argument("-o", "--output-csv-filename", default="data/voter_cards.csv")
     args = parser.parse_args()
 
     ballot_data = get_ballot_data(args.input_dir)

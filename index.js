@@ -143,7 +143,7 @@ createApp({
       }
     };
 
-    fetch('/precincts.geojson')
+    fetch('/data/precincts.geojson')
       .then((response) => response.json())
       .then((data) => {
         console.log('geojson', data);
@@ -156,7 +156,7 @@ createApp({
         console.log(geojson_index);
       });
 
-    fetch('/precinct_vote_totals.json')
+    fetch('/data/precinct_vote_totals.json')
       .then((response) => response.json())
       .then((data) => {
         precinct_vote_totals = data;

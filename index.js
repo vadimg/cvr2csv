@@ -3,7 +3,7 @@ import { createApp } from 'vue'
 mapboxgl.accessToken = 'pk.eyJ1IjoiZGltdmEiLCJhIjoiY2plYzhtMTM5MG5yazJ4bGE0OHZrcHpnZCJ9.u9hqKMLwpq-JHGyhAW2GeQ';
 var map = new mapboxgl.Map({
     container: 'map', // container id
-    style: 'mapbox://styles/mapbox/light-v11',
+    style: 'mapbox://styles/dimva/clf8y8kox000601moliyn8k37',
 });
 
 // Hide loading bar once tiles from geojson are loaded

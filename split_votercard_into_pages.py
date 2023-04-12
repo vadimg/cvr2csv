@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import argparse
 import csv
 from collections import defaultdict
@@ -6,9 +8,9 @@ from collections import defaultdict
 def main():
     parser = argparse.ArgumentParser(
         description = "Figures out which columns are on which pages")
-    parser.add_argument("-i", "--input-csv-filename", default="voter_cards.csv")
+    parser.add_argument("-i", "--input-csv-filename", default="data/voter_cards.csv")
     parser.add_argument("-o", "--output-csv-filename-pattern",
-                        default="voter_cards.%d.csv")
+                        default="data/voter_cards.%d.csv")
     args = parser.parse_args()
 
     sets = {} # column -> set

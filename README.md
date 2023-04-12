@@ -10,3 +10,8 @@ The CSV file has a column for every ballot choice. This is straightforward excep
 * If a voter has submitted a ballot page but did not vote for a ballot question, that cell will contain "[-]" to denote the lack of a vote.
 
 NOTE: Each row in the CSV is not a voter, it is a ballot page. There is no way to associate ballot pages for the same voter with each other, so it's only possible to do analysis on ballot questions that happened to be on the same ballot page.
+
+
+## Web interface
+
+

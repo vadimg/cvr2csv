@@ -1,7 +1,7 @@
 import { parse } from 'https://cdn.jsdelivr.net/npm/@vanillaes/csv@3.0.1/index.min.js'
 
 const start = Date.now();
-for(let i = 3; i < 5; ++i) {
+for(let i = 0; i < 5; ++i) {
   fetch('/data/voter_cards.' + (i+1) + '.csv')
     .then((response) => response.text())
     .then((csv) => {

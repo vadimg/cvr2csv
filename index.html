@@ -27,6 +27,13 @@ html, body {
   padding-right: 10px;
 }
 
+#app .loading {
+  width: 100%;
+  text-align: center;
+  font-size: 32px;
+  font-weight: bold;
+}
+
 #map {
   flex: 1;
 }
@@ -82,10 +89,15 @@ html, body {
   display: none;
 }
 
+[v-cloak] {
+  display: none;
+}
+
 </style>
 
   <div class="flex-container">
     <div id="app">
+      <p v-cloak class="loading" v-if="pagesLoaded < 5">Loading... ({{ pagesLoaded }} / 5)</p>
       <button @click="filters={}">Reset</button>
       <ul class="races">
         <template v-for="key in allRaces">

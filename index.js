@@ -6,13 +6,6 @@ var map = new mapboxgl.Map({
     style: 'mapbox://styles/dimva/clf8y8kox000601moliyn8k37',
 });
 
-// Hide loading bar once tiles from geojson are loaded
-map.on('data', function(e) {
-    if (e.dataType === 'source' && e.sourceId === 'zones-layer') {
-        document.getElementById("loader").style.display = "none";
-    }
-});
-
 // disable map rotation using right click + drag
 map.dragRotate.disable();
 
@@ -183,6 +176,15 @@ createApp({
     },
   },
   computed: {
+    pagesLoaded() {
+      let ret = 0;
+      for(const d of this.data) {
+        if(d) {
+          ret++;
+        }
+      }
+      return ret;
+    },
     allRaces() {
       const index = selectedPageIndex(this.filters, this.pageIndex);
 
